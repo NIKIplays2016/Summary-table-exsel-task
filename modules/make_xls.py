@@ -1,6 +1,6 @@
 import time
 
-from openpyxl import Workbook
+from openpyxl import Workbook, load_workbook
 from openpyxl.styles import Alignment, Font, Border, Side
 
 from datetime import datetime
@@ -115,9 +115,11 @@ def create_info_data(date1, date2, sity):
             ws['C5'] = f"по {date2}"
     else:
         ws['A5'] = 'За весь период'
+        ws['B5'] = None
+        ws['C5'] = None
 
-#('Витебская обл.', 'Докшицкий р-н', '02', 3, 1.4264)
-def analyzing(rows:tuple) -> None:
+
+def analyzing(rows:tuple) -> int:
     """ЖЕСТЬ"""
     pattern = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
     xl_list = []
@@ -126,14 +128,13 @@ def analyzing(rows:tuple) -> None:
     sity_row[0] = rows[0][0]
     xl_list.append(sity_row)
 
-    #new_row = pattern.copy()
     rayons = []
     for i in rows:
         rayons.append(i[1])
     rayons = sorted(set(rayons))
 
     copy_rows = list(rows)
-    form_dir = {}       #ловарь хранящий формы для каждого района
+    form_dir = {}       #словарь хранящий формы для каждого района
 
     for rayon in rayons:
         delete_ind = []
@@ -144,11 +145,10 @@ def analyzing(rows:tuple) -> None:
                 form_dir[rayon].append(row[2])
                 delete_ind.append(i)
 
-        for i in reversed(delete_ind):    #Удаление какашек, чтоб в следующих итерациях не воняли
+        for i in reversed(delete_ind):
             del copy_rows[i]
 
         form_dir[rayon] = sorted(set(form_dir[rayon]))
-
 
     vovlevh_column = {
         1:6,
@@ -163,16 +163,14 @@ def analyzing(rows:tuple) -> None:
         0:26,
     }
 
-    plus_collumn = 3
-
     copy_rows = list(rows)
     for rayon in rayons:
         rayon_block = [pattern.copy()]
         rayon_block[0][0] = rayon
 
-
         for form in form_dir[rayon]:
             form_row = pattern.copy()
+
             delete_ind = []
             form_row[2] = f"{form} - {form22_dir[form]}"
 
@@ -190,9 +188,9 @@ def analyzing(rows:tuple) -> None:
             area_sum = 0
 
             for i, value in enumerate(sum_data):
-                if i % 2 == 0:  # Четные индексы
+                if i % 2 == 0:
                     area_sum += value
-                else:  # Нечетные индексы
+                else:
                     contur_sum += value
 
             form_row[24], form_row[25] = contur_sum, area_sum
@@ -206,70 +204,97 @@ def analyzing(rows:tuple) -> None:
             for i in range(4, 28):
                 rayon_block[0][i] += row[i]
                 xl_list[0][i] += row[i]
+        rayon_block.append(pattern.copy())
         xl_list += rayon_block
 
     start_row = 10
     start_col = 1
-
     for row_idx, row_data in enumerate(xl_list, start=start_row):
         for col_idx, value in enumerate(row_data, start=start_col):
             if value == 0:
                 ws.cell(row=row_idx, column=col_idx, value="")
             else:
                 ws.cell(row=row_idx, column=col_idx, value=value)
+    return len(xl_list)
 
-
+def check_xls(pwd: str) -> bool:
+    """Проверяет, существиет ли уже такой xlsx файл"""
+    try:
+        load_workbook(pwd)
+        return True
+    except FileNotFoundError:
+        return False
 
 def xl_main(start_time: str, end_time: str, rows: tuple, pwd: str):
     start_time_test = time.time()
     global wb
     global ws
-    wb = Workbook()
-    ws = wb.active
-    ws.title = "Сводная таблица"
+
 
     try:
         sity = rows[0][0]
     except IndexError:
         raise TabError
 
-    create_info_data(start_time, end_time, sity)
-    format_size(50, 10, 9, 30)
-    create_excel()
-    analyzing(rows)
 
-    border_thick = Side(border_style="medium", color="000000")
 
-    for row in ws.iter_rows():
-        for cell in row:
-            cell.alignment = Alignment(wrap_text=True)
-            cell.font = Font(size=9, bold=True)
-            cell.border = Border(left=border_thick, right=border_thick, top=border_thick, bottom=border_thick, )
+    if not check_xls(pwd):
+        wb = Workbook()
+        ws = wb.active
+        ws.title = "Сводная таблица"
 
-    thin_border = Side(border_style="thin", color="000000")  # Тонкая черная граница
-    border = Border(left=thin_border, right=thin_border, top=thin_border, bottom=thin_border)
+        format_size(50, 10, 9, 30)
+        create_excel()
+        border_thick = Side(border_style="medium", color="000000")
+
+        for row in ws.iter_rows():
+            for cell in row:
+                cell.alignment = Alignment(wrap_text=True)
+                cell.font = Font(size=9, bold=True)
+                cell.border = Border(left=border_thick, right=border_thick, top=border_thick, bottom=border_thick, )
+
+        thin_border = Side(border_style="thin", color="000000")  # Тонкая черная граница
+        border = Border(left=thin_border, right=thin_border, top=thin_border, bottom=thin_border)
 
         # Применяем стиль границы к диапазону ячеек от A1 до AB6
-    for row in ws.iter_rows(min_row=1, max_row=6, min_col=1, max_col=28):  # А1 до AB6
-        for cell in row:
-            cell.border = border
+        for row in ws.iter_rows(min_row=1, max_row=6, min_col=1, max_col=28):  # А1 до AB6
+            for cell in row:
+                cell.border = border
 
-    last_row = ws.max_row
-    for row in range(10, last_row + 1):
-        ws.merge_cells(start_row=row, start_column=3, end_row=row, end_column=4)  # C=3, D=4
-        merged_cell = ws.cell(row=row, column=3)
-        merged_cell.alignment = merged_cell.alignment.copy(wrap_text=False)
-        ws.merge_cells(start_row=row, start_column=1, end_row=row, end_column=2)
+        last_row = ws.max_row
+        for row in range(10, last_row + 1):
+            ws.merge_cells(start_row=row, start_column=3, end_row=row, end_column=4)  # C=3, D=4
+            merged_cell = ws.cell(row=row, column=3)
+            merged_cell.alignment = merged_cell.alignment.copy(wrap_text=False)
+            ws.merge_cells(start_row=row, start_column=1, end_row=row, end_column=2)
 
-    ws.merge_cells('A7:B8')
-    ws['A7'] = "Наименование административно-территориальной единицы (район, город областного подчинения)"
-    ws.merge_cells('C7:D8')
-    ws['C7'] = "Категория землепользователя по Форме 22"
+        ws.merge_cells('A7:B8')
+        ws['A7'] = "Наименование административно-территориальной единицы (район, город областного подчинения)"
+        ws.merge_cells('C7:D8')
+        ws['C7'] = "Категория землепользователя по Форме 22"
 
-    ws.merge_cells('A1:Z1')
-    ws['A1'] = 'ИНФОРМАЦИЯ О ВОВЛЕЧЕНИИ ЗЕМЕЛЬ ПОД ДРЕВЕСНО-КУСТАРНИКОВОЙ РАСТИТЕЛЬНОСТЬЮ В ХОЗЯЙСТВЕННЫЙ ОБОРОТ'
-    ws['A1'].alignment = Alignment(horizontal='center')
-    ws['A1'].font = Font(size=14)
+        ws.merge_cells('A1:Z1')
+        ws['A1'] = 'ИНФОРМАЦИЯ О ВОВЛЕЧЕНИИ ЗЕМЕЛЬ ПОД ДРЕВЕСНО-КУСТАРНИКОВОЙ РАСТИТЕЛЬНОСТЬЮ В ХОЗЯЙСТВЕННЫЙ ОБОРОТ'
+        ws['A1'].alignment = Alignment(horizontal='center')
+        ws['A1'].font = Font(size=14)
+        analyzing(rows)
+    else:
+        wb = load_workbook(pwd)
+        ws = wb.active
+        ws.title = "Сводная таблица"
+
+        start_row = analyzing(rows)
+
+        max_row = ws.max_row
+        # Очищаем диапазон от A10 до AB последней строки
+        for row in range(start_row + 10, max_row + 1):
+            for col in range(1, 29):  # от 1 до 29 для колонок A до AB
+                cell = ws.cell(row=row, column=col)
+                cell.value = None
+
+
+    create_info_data(start_time, end_time, sity)
+
 
     end_time_test = time.time()
     execution_time = end_time_test - start_time_test

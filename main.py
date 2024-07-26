@@ -31,7 +31,7 @@ def create_xls():
 
     selected_checkboxes = get_selected_checkboxes()
     if len(selected_checkboxes) == 0:
-        warning_label.config(text="Формы мне самому выбрать?", fg="#9E9900")
+        warning_label.config(text="Form22 не выбраны", fg="#9E9900")
         return 0
 
     region_dir = {
@@ -46,7 +46,7 @@ def create_xls():
     try:
         region = region_dir[combobox.get()]
     except KeyError:
-        warning_label.config(text="Регион мне самому выбрать?", fg="#9E9900")
+        warning_label.config(text="Не выбран регион", fg="#9E9900")
         return 0
 
     start_time = start_time_entry.get()
@@ -56,16 +56,6 @@ def create_xls():
         print(start_time_entry.get())
         rows = sql_main(region, selected_checkboxes, start_time, end_time, read_entry.get())
         xl_main(start_time, end_time, rows, write_entry.get())
-
-    except SyntaxError:
-        warning_label.config(
-            text="Не правильно введено время!\n"
-                 "  Формат: \n"
-                 "01-10-2005 \n"
-                 "  Или \n"
-                 "01-10-2005 02:58:24 \n",
-            fg="#E32636")
-        return 0
     except PermissionError:
         warning_label.config(text="Закройте файл excel 'summary' и повторите", fg="#9E9900")
         return 0
@@ -75,10 +65,18 @@ def create_xls():
     except FileNotFoundError:
         warning_label.config(text="Проверьте путь для сохранения", fg="#9E9900")
         return 0
-    """ except pyodbc.Error:
+    except pyodbc.Error:
         warning_label.config(text="Не верный путь к БД", fg="#9E9900")
-        return 0"""
-
+        return 0
+    except SyntaxError:
+        warning_label.config(
+            text="Не правильно введено время!\n"
+                 "  Формат: \n"
+                 "01-10-2005 \n"
+                 "  Или \n"
+                 "01-10-2005 02:58:24 \n",
+            fg="#E32636")
+        return 0
 
     warning_label.config(text="Успешно записано!", fg="#008000")
 
